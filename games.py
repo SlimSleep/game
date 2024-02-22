@@ -143,15 +143,15 @@ class Game(arcade.View):
         self.no_ground = tiled_map.sprite_lists["земля фон"]
         self.no_ground_1 = tiled_map.sprite_lists["забор"]
         self.no_ground_2 = tiled_map.sprite_lists["Забор"]
-        self.block = tiled_map.sprite_lists["Блок"]
         self.background = arcade.load_texture("Final/Background_0.png")
         self.background_1 = arcade.load_texture("Final/Background_1.png")
 
+
         self.person = Person()
-        self.person.center_x = 20
+        self.person.center_x = 70
         self.person.center_y = 300
-        # corda = [(500, 750), (1225, 275), (1419, 275), (838, 802), (1032, 802), (2386, 732)]
-        corda = [(500, 250)]
+        corda = [(500, 750), (1225, 275), (1419, 275), (838, 802), (1032, 802), (2386, 732)]
+        # corda = [(500, 250)]
         self.coin_list = arcade.SpriteList()
         for i in corda:
             coin = Coin()
@@ -160,7 +160,7 @@ class Game(arcade.View):
         self.coin_len = len(self.coin_list)
 
         self.portal = Portal()
-        self.portal.position = 125, 190
+        self.portal.position = 2390, 320
 
 
         self.camera = arcade.Camera()
@@ -210,14 +210,18 @@ class Game(arcade.View):
 
 
     def on_update(self, delta_time: float):
+        if self.person.center_y <= -100:
+            rip = Rip()
+            window.show_view(rip)
+            self.person.center_y = SCREEN_HEIGHT // 2
+            self.person.center_x = SCREEN_WIDTH // 2
         self.coin_len = len(self.coin_list)
         self.person.update_animation()
         if self.coin_len == 0:
             self.portal.update_animation()
         if self.coin_len == 0:
             if arcade.check_for_collision(self.person, self.portal):
-                menu_view.manager.enable()
-                self.window.show_view(menu_view)
+                self.window.show_view(win_view)
                 self.person.center_x = SCREEN_WIDTH // 2
                 self.person.center_y = SCREEN_HEIGHT // 2
 
@@ -297,8 +301,11 @@ class Menu_View(arcade.View):
         self.game_box.add(start_key.with_space_around(25))
         star_key = gui.UIFlatButton(text="Достижения", width=200)
         self.game_box.add(star_key.with_space_around(25))
+        story_key = gui.UIFlatButton(text="История", width=200)
+        self.game_box.add(story_key.with_space_around(25))
 
         start_key.on_click = self.on_click_start
+        story_key.on_click = self.on_click_story
 
         self.backgrounds = arcade.load_texture("Final/Background_0.png")
         self.backgrounds_1 = arcade.load_texture("Final/Background_1.png")
@@ -307,6 +314,13 @@ class Menu_View(arcade.View):
         level_view.manager.enable()
         window.show_view(level_view)
         self.manager.disable()
+
+    def on_click_story(self, event):
+        story = Story(menu_view)
+        story.setup()
+        window.show_view(story)
+        self.manager.disable()
+
 
 
     def on_draw(self):
@@ -336,6 +350,8 @@ class Levels(arcade.View):
 
         start_key = gui.UIFlatButton(text="LEVEL-1", width=200)
         self.game_box.add(start_key.with_space_around(25))
+        start_key_1 = gui.UIFlatButton(text="В разработке...", width=200)
+        self.game_box.add(start_key.with_space_around(25))
 
         start_key.on_click = self.on_click_level
 
@@ -351,13 +367,108 @@ class Levels(arcade.View):
                                       SCREEN_WIDTH, SCREEN_HEIGHT, self.backgrounds)
         self.manager.draw()
 
-class Pip(arcade.View):
+class Rip(arcade.View):
     def __init__(self):
         super().__init__()
+        self.backgrounds = arcade.load_texture("Final/Background_0.png")
+        self.backgrounds_1 = arcade.load_texture("Final/Background_1.png")
+
+    def on_draw(self):
+        self.clear()
+
+        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
+                                      SCREEN_WIDTH, SCREEN_HEIGHT, self.backgrounds)
+
+        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
+                                      SCREEN_WIDTH, SCREEN_HEIGHT, self.backgrounds_1)
+
+        arcade.draw_text("Вы проиграли", 300, SCREEN_HEIGHT // 2, (255, 255, 255), font_size=50)
+
+    def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
+        window.show_view(menu_view)
+        menu_view.manager.enable()
+
+class Win(arcade.View):
+    def __init__(self):
+        super().__init__()
+        self.backgrounds = arcade.load_texture("Final/Background_0.png")
+        self.backgrounds_1 = arcade.load_texture("Final/Background_1.png")
+
+    def on_draw(self):
+        self.clear()
+
+        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
+                                      SCREEN_WIDTH, SCREEN_HEIGHT, self.backgrounds)
+
+        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
+                                      SCREEN_WIDTH, SCREEN_HEIGHT, self.backgrounds_1)
+
+        arcade.draw_text("Вы выйграли", 300, SCREEN_HEIGHT // 2, (255, 255, 255), font_size=50)
+
+    def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
+        window.show_view(menu_view)
+        menu_view.manager.enable()
+
+class Story(arcade.View):
+    def __init__(self, menu):
+        super().__init__()
+        self.menu = menu
+        self.text = None
+        self.count = 0
+        self.nummer = 0
+        self.screen_text = ""
+        self.start_text = 0
+
+
+        self.num_str = 0
+
+        self.spisok = []
+        self.spisok_screen = []
+
+    def setup(self):
+
+        with open("Сюжет.txt", encoding="UTF-8") as text:
+            self.text = text.read()
+            len_text = len(self.text)
+            self.start_text = 0
+            for i in range(0, len_text + 1, 100):
+                self.spisok.append(self.text[self.start_text:i])
+                self.spisok_screen.append("")
+                self.start_text = i
+            self.spisok.append(self.text[self.start_text:])
+            self.spisok_screen.append("")
+
+    def on_draw(self):
+        self.clear()
+        y_text = (SCREEN_HEIGHT - 50)
+        for i in self.spisok_screen:
+            text = arcade.Text(i, 50, y_text, (0,255, 255))
+            text.draw()
+            y_text -= 50
+
+
+
+    def update(self, delta_time: float):
+        if self.num_str <= (self.start_text // 100) + 1:
+            print(self.start_text)
+            self.count += 1
+            if self.count >= 1:
+                self.count = 0
+                self.spisok_screen[self.num_str] = self.spisok[self.num_str][:self.nummer]
+                self.nummer += 1
+
+                if self.nummer > 100:
+                    self.nummer = 0
+                    self.num_str += 1
+
+
 
 window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT)
 menu_view = Menu_View()
 game_view = Game()
+rip_view = Rip()
+win_view = Win()
+story_view = Story(menu_view)
 level_view = Levels()
 game_view.setup()
 
