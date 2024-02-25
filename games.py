@@ -1,5 +1,10 @@
+import os.path
+
 import arcade
 import arcade.gui as gui
+import time
+import json
+
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 600
@@ -19,16 +24,24 @@ DYNAMIC_ITEM_FRACTION = 0.6
 PLAYER_MASS = 2.6
 
 PLAYER_MAX_HORIZONTAL_SPEED = 450
-PLAYER_MAX_VERTICAL_SPEED = 1900
+PLAYER_MAX_VERTICAL_SPEED = 1280
 PLAYER_MOVE_FORCE_ON_GROUND = 5000
 PLAYER_JUMP_IMPULSE = 1490
-
 
 def texture(filename):
     return [
         arcade.load_texture(filename),
         arcade.load_texture(filename, flipped_horizontally=True),
     ]
+
+def read():
+    with open("save.json", encoding="utf-8") as file:
+        data = json.load(file)
+        return data
+
+def write(data):
+    with open("save.json", mode="w", encoding="utf-8") as file:
+        json.dump(data, file)
 
 
 class Portal(arcade.Sprite):
@@ -64,6 +77,26 @@ class Coin(arcade.Sprite):
 
         for i in range(1, 11):
             textura = texture(f"Silver/Silver_{i}.png")
+            self.run.append(textura)
+
+    def update_animation(self, delta_time: float = 1 / 20):
+        self.cur_texture = (self.cur_texture + 1) % 20
+        self.texture = self.run[self.cur_texture // 2][0]
+
+
+class Gold_Coin(arcade.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.scale = 0.1
+        self.cur_texture = 0
+
+        self.coin_texture = arcade.load_texture("Gold/Gold_1.png")
+        self.texture = self.coin_texture
+
+        self.run = []
+
+        for i in range(1, 11):
+            textura = texture(f"Gold/Gold_{i}.png")
             self.run.append(textura)
 
     def update_animation(self, delta_time: float = 1 / 20):
@@ -113,7 +146,7 @@ class Person(arcade.Sprite):
 
 
 class Game(arcade.View):
-    def __init__(self):
+    def __init__(self, level):
         super().__init__()
         self.ground = None
         self.no_ground = None
@@ -131,9 +164,17 @@ class Game(arcade.View):
         self.coin_len = None
         self.portal = None
 
+
+        self.level = level
+
+        self.rounded_time = None
+        self.start_time = None
+        self.win_1 = None
+
         self.setup()
 
     def setup(self):
+        self.start_time = time.time()
         map = "безымянный.json"
         tiled_map = arcade.load_tilemap(map, SKALE_MAP)
         self.ground = tiled_map.sprite_lists["Слой тайлов 1"]
@@ -213,8 +254,11 @@ class Game(arcade.View):
             self.portal.update_animation()
         if self.coin_len == 0:
             if arcade.check_for_collision(self.person, self.portal):
-                win_view.manager.enable()
-                self.window.show_view(win_view)
+                elapsed_time = time.time() - self.start_time
+                self.rounded_time = round(elapsed_time, 1)
+                self.win_1 = Win(self.level, self.rounded_time)
+                self.win_1.manager.enable()
+                self.window.show_view(self.win_1)
                 self.person.center_x = SCREEN_WIDTH // 2
                 self.person.center_y = SCREEN_HEIGHT // 2
 
@@ -225,22 +269,23 @@ class Game(arcade.View):
             force = (-PLAYER_MOVE_FORCE_ON_GROUND, 0)
             self.physics_engine.apply_force(self.person, force)
             self.physics_engine.set_friction(self.person, 0)
+            self.person.change_x = -5
         elif self.right_pressed and not self.left_pressed:
             force = (PLAYER_MOVE_FORCE_ON_GROUND, 0)
             self.physics_engine.apply_force(self.person, force)
             self.physics_engine.set_friction(self.person, 0)
+            self.person.change_x = 5
         else:
             self.physics_engine.set_friction(self.person, 1.0)
+            self.person.change_x = 0
 
         self.physics_engine.step()
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.LEFT or symbol == arcade.key.A:
-            self.person.change_x = -SPEED
             self.person.idle = False
             self.left_pressed = True
         elif symbol == arcade.key.RIGHT or symbol == arcade.key.D:
-            self.person.change_x = SPEED
             self.person.idle = False
             self.right_pressed = True
 
@@ -251,12 +296,12 @@ class Game(arcade.View):
 
     def on_key_release(self, symbol: int, modifiers: int):
         if symbol == arcade.key.LEFT or symbol == arcade.key.A:
-            self.person.change_x = 0
             self.left_pressed = False
+
 
         if symbol == arcade.key.RIGHT or symbol == arcade.key.D:
             self.right_pressed = False
-            self.person.change_x = 0
+
 
     def set_viewport(self):
         center_x = self.person.center_x
@@ -271,7 +316,7 @@ class Game(arcade.View):
 
 
 class Game_2(arcade.View):
-    def __init__(self):
+    def __init__(self, level):
         super().__init__()
         self.ground = None
         self.no_ground = None
@@ -292,9 +337,17 @@ class Game_2(arcade.View):
         self.coin_len = None
         self.portal = None
 
+        self.gold_coin = None
+
+        self.level = level
+        self.rounded_time = None
+        self.start_time = None
+        self.win_2 = None
+
         self.setup()
 
     def setup(self):
+        self.start_time = time.time()
         map = "2_lvl.json"
         tiled_map = arcade.load_tilemap(map, SKALE_MAP)
         self.ground = tiled_map.sprite_lists["Взаимодействие "]
@@ -310,8 +363,9 @@ class Game_2(arcade.View):
         self.person = Person()
         self.person.center_x = 170
         self.person.center_y = 1100
-        # corda = [(500, 750), (1225, 275), (1419, 275), (838, 802), (1032, 802), (2386, 732)]
-        corda = [(500, 250)]
+        # corda = [(187, 363), (812, 312), (1500, 562), (1062, 562), (1472, 312), (2125, 438), (3000, 687), (3125, 501),
+        #          (3375, 501), (2685, 875), (1875, 562)]
+        corda = [(187, 363)]
         self.coin_list = arcade.SpriteList()
         for i in corda:
             coin = Coin()
@@ -320,7 +374,10 @@ class Game_2(arcade.View):
         self.coin_len = len(self.coin_list)
 
         self.portal = Portal()
-        self.portal.position = 2390, 320
+        self.portal.position = 3710, 1073
+
+        self.gold_coin = Gold_Coin()
+        self.gold_coin.position = 2000, 1000
 
         damping = DEFAULT_DAMPING
         gravity = (0, -GRAVITI)
@@ -362,6 +419,7 @@ class Game_2(arcade.View):
         self.no_ground.draw()
         self.ground.draw()
         self.coin_list.draw()
+        self.gold_coin.draw()
 
         self.person.draw()
         if self.coin_len == 0:
@@ -379,34 +437,43 @@ class Game_2(arcade.View):
             self.portal.update_animation()
         if self.coin_len == 0:
             if arcade.check_for_collision(self.person, self.portal):
-                win_2_view.manager.enable()
-                self.window.show_view(win_2_view)
+                elapsed_time = time.time() - self.start_time
+                self.rounded_time = round(elapsed_time, 1)
+                self.win_2 = Win_2(self.level, self.rounded_time)
+                self.win_2.manager.enable()
+                self.window.show_view(self.win_2)
                 self.person.center_x = SCREEN_WIDTH // 2
                 self.person.center_y = SCREEN_HEIGHT // 2
+
+
+        self.gold_coin.update_animation()
+        if arcade.check_for_collision(self.person, self.gold_coin):
+            self.gold_coin.kill()
 
         for coin in self.coin_list:
             coin.update_animation()
         self.set_viewport()
         if self.left_pressed and not self.right_pressed:
+            self.person.change_x = -5
             force = (-PLAYER_MOVE_FORCE_ON_GROUND, 0)
             self.physics_engine.apply_force(self.person, force)
             self.physics_engine.set_friction(self.person, 0)
         elif self.right_pressed and not self.left_pressed:
+            self.person.change_x = 5
             force = (PLAYER_MOVE_FORCE_ON_GROUND, 0)
             self.physics_engine.apply_force(self.person, force)
             self.physics_engine.set_friction(self.person, 0)
         else:
             self.physics_engine.set_friction(self.person, 1.0)
+            self.person.change_x = 0
 
         self.physics_engine.step()
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.LEFT or symbol == arcade.key.A:
-            self.person.change_x = -SPEED
             self.person.idle = False
             self.left_pressed = True
         elif symbol == arcade.key.RIGHT or symbol == arcade.key.D:
-            self.person.change_x = SPEED
             self.person.idle = False
             self.right_pressed = True
 
@@ -417,12 +484,10 @@ class Game_2(arcade.View):
 
     def on_key_release(self, symbol: int, modifiers: int):
         if symbol == arcade.key.LEFT or symbol == arcade.key.A:
-            self.person.change_x = 0
             self.left_pressed = False
 
         if symbol == arcade.key.RIGHT or symbol == arcade.key.D:
             self.right_pressed = False
-            self.person.change_x = 0
 
     def set_viewport(self):
         center_x = self.person.center_x
@@ -442,6 +507,15 @@ class Menu_View(arcade.View):
         self.game_view = None
         self.manager = gui.UIManager()
         self.manager.enable()
+        if os.path.isfile("save.json"):
+
+            data = read()
+            self.levels = data.get("levels")
+        else:
+            self.levels = [1]
+        self.levels = set(self.levels)
+
+
 
         self.game_box = gui.UIBoxLayout()
         play_anchor = gui.UIAnchorWidget(anchor_x="center",
@@ -464,8 +538,9 @@ class Menu_View(arcade.View):
         self.backgrounds_1 = arcade.load_texture("Final/Background_1.png")
 
     def on_click_start(self, event):
-        level_view.manager.enable()
-        window.show_view(level_view)
+        self.level = Levels(self.levels)
+        self.level.manager.enable()
+        window.show_view(self.level)
         self.manager.disable()
 
     def on_click_story(self, event):
@@ -486,11 +561,13 @@ class Menu_View(arcade.View):
 
 
 class Levels(arcade.View):
-    def __init__(self):
+    def __init__(self, level):
         super().__init__()
         self.backgrounds = arcade.load_texture("Final/Background_0.png")
         self.manager = gui.UIManager()
         self.manager.enable()
+
+        self.level = level
 
         self.game_box = gui.UIBoxLayout()
         play_anchor = gui.UIAnchorWidget(anchor_x="center",
@@ -501,22 +578,42 @@ class Levels(arcade.View):
 
         start_key = gui.UIFlatButton(text="LEVEL-1", width=200)
         self.game_box.add(start_key.with_space_around(25))
-        start_2_key = gui.UIFlatButton(text="LEVEL-2", width=200)
-        self.game_box.add(start_2_key.with_space_around(25))
+        if max(self.level) >= 2:
+            start_2_key = gui.UIFlatButton(text="LEVEL-2", width=200)
+            self.game_box.add(start_2_key.with_space_around(25))
+            start_2_key.on_click = self.on_click_level_2
+        else:
+            block_key = gui.UIFlatButton(text="Blocked", width=200)
+            self.game_box.add(block_key.with_space_around(25))
+
         rest_key_1 = gui.UIFlatButton(text="В разработке...", width=200)
         self.game_box.add(rest_key_1.with_space_around(25))
 
+        menu_key = gui.UIFlatButton(text="Меню", width=200)
+        self.game_box.add(menu_key.with_space_around(25))
+
         start_key.on_click = self.on_click_level
-        start_2_key.on_click = self.on_click_level_2
+        menu_key.on_click = self.on_click_menu
+
+
+        self.game_1 = None
+        self.game_2 = None
+
+    def on_click_menu(self, event):
+        menu_view.manager.enable()
+        window.show_view(menu_view)
+        self.manager.disable()
 
     def on_click_level(self, event):
-        game = Game()
-        window.show_view(game)
+        self.game_1 = Game(self.level)
+        self.game_1.setup()
+        window.show_view(self.game_1)
         self.manager.disable()
 
     def on_click_level_2(self, event):
-        game_2 = Game_2()
-        window.show_view(game_2)
+        self.game_2 = Game_2(self.level)
+        self.game_2.setup()
+        window.show_view(self.game_2)
         self.manager.disable()
 
     def on_draw(self):
@@ -549,13 +646,24 @@ class Rip(arcade.View):
 
 
 class Win(arcade.View):
-    def __init__(self):
+    def __init__(self, level, timeer):
         super().__init__()
         self.backgrounds = arcade.load_texture("Final/Background_0.png")
         self.backgrounds_1 = arcade.load_texture("Final/Background_1.png")
         self.manager = gui.UIManager()
         self.manager.disable()
         self.win_box = gui.UIBoxLayout()
+
+        self.time = timeer
+
+        self.level = level
+        self.level.add(2)
+
+        data = {"levels": list(self.level)}
+        write(data)
+
+
+
 
         win_anchor = gui.UIAnchorWidget(anchor_x="center",
                                         anchor_y="center",
@@ -576,7 +684,7 @@ class Win(arcade.View):
         self.manager.disable()
 
     def on_click_restart(self, event):
-        game = Game()
+        game = Game(self.level)
         window.show_view(game)
         self.manager.disable()
 
@@ -589,17 +697,29 @@ class Win(arcade.View):
         arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
                                       SCREEN_WIDTH, SCREEN_HEIGHT, self.backgrounds_1)
 
+        arcade.draw_text(f"Вы прошли за: {self.time} секунд", 290, 380, (255, 255, 0), 25)
+
         self.manager.draw()
 
 
 class Win_2(arcade.View):
-    def __init__(self):
+    def __init__(self, level, timers):
         super().__init__()
         self.backgrounds = arcade.load_texture("Final/Background_0.png")
         self.backgrounds_1 = arcade.load_texture("Final/Background_1.png")
         self.manager = gui.UIManager()
         self.manager.disable()
         self.win_box = gui.UIBoxLayout()
+
+        self.level = level
+        self.level.add(3)
+
+
+        data = {"levels": list(self.level)}
+        write(data)
+
+        self.time = timers
+
 
         win_anchor = gui.UIAnchorWidget(anchor_x="center",
                                         anchor_y="center",
@@ -620,7 +740,7 @@ class Win_2(arcade.View):
         self.manager.disable()
 
     def on_click_restart(self, event):
-        game_2 = Game_2()
+        game_2 = Game_2(self.level)
         window.show_view(game_2)
         self.manager.disable()
 
@@ -632,6 +752,8 @@ class Win_2(arcade.View):
 
         arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
                                       SCREEN_WIDTH, SCREEN_HEIGHT, self.backgrounds_1)
+
+        arcade.draw_text(f"Вы прошли за: {self.time} секунд", 290, 380, (255, 255, 0), 25)
 
         self.manager.draw()
 
@@ -646,10 +768,30 @@ class Story(arcade.View):
         self.screen_text = ""
         self.start_text = 0
 
+        self.backgrounds = arcade.load_texture("Final/Background_0.png")
+        self.backgrounds_1 = arcade.load_texture("Final/Background_1.png")
+
         self.num_str = 0
 
         self.spisok = []
         self.spisok_screen = []
+
+        self.manager = gui.UIManager()
+        self.manager.enable()
+        self.skip_box = gui.UIBoxLayout()
+        skip_anchor = gui.UIAnchorWidget(anchor_x="right",
+                                        anchor_y="top",
+                                        child=self.skip_box)
+        self.manager.add(skip_anchor)
+
+        restart_key = gui.UIFlatButton(text="Меню", width=200)
+        self.skip_box.add(restart_key.with_space_around(25))
+        restart_key.on_click = self.on_click_skip
+
+    def on_click_skip(self, event):
+        menu_view.manager.enable()
+        window.show_view(menu_view)
+        self.manager.disable()
 
     def setup(self):
 
@@ -657,7 +799,7 @@ class Story(arcade.View):
             self.text = text.read()
             len_text = len(self.text)
             self.start_text = 0
-            for i in range(0, len_text + 1, 100):
+            for i in range(0, len_text + 1, 80):
                 self.spisok.append(self.text[self.start_text:i])
                 self.spisok_screen.append("")
                 self.start_text = i
@@ -666,36 +808,39 @@ class Story(arcade.View):
 
     def on_draw(self):
         self.clear()
-        y_text = (SCREEN_HEIGHT - 50)
+
+        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
+                                      SCREEN_WIDTH, SCREEN_HEIGHT, self.backgrounds)
+
+        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
+                                      SCREEN_WIDTH, SCREEN_HEIGHT, self.backgrounds_1)
+
+        y_text = (SCREEN_HEIGHT - 150)
         for i in self.spisok_screen:
-            text = arcade.Text(i, 50, y_text, (0, 255, 255))
+            text = arcade.Text(i, 50, y_text, (0,255,0), font_size=15)
             text.draw()
             y_text -= 50
 
+        self.manager.draw()
+
     def update(self, delta_time: float):
-        if self.num_str <= (self.start_text // 100) + 1:
+        if self.num_str <= (self.start_text // 80) + 1:
             self.count += 1
             if self.count >= 1:
                 self.count = 0
                 self.spisok_screen[self.num_str] = self.spisok[self.num_str][:self.nummer]
                 self.nummer += 1
 
-                if self.nummer > 100:
+                if self.nummer > 80:
                     self.nummer = 0
                     self.num_str += 1
 
 
+
 window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT)
 menu_view = Menu_View()
-game_view = Game()
-game_view_2 = Game_2()
 rip_view = Rip()
-win_view = Win()
-win_2_view = Win_2()
 story_view = Story(menu_view)
-level_view = Levels()
-game_view.setup()
-game_view_2.setup()
 
 window.show_view(menu_view)
 arcade.run()
