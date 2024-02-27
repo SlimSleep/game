@@ -173,6 +173,16 @@ class Game(arcade.View):
 
         self.setup()
 
+        self.jump_music = arcade.load_sound("music/jump/jump_1.mp3")
+        self.jump_play = None
+
+        self.portal_music = arcade.load_sound('music/portal/portal.mp3')
+        self.portal_play = None
+        self.portal_const = 0
+
+        self.coin_music = arcade.load_sound('music/coin.mp3')
+        self.coin_play = None
+
     def setup(self):
         self.start_time = time.time()
         map = "безымянный.json"
@@ -187,8 +197,7 @@ class Game(arcade.View):
         self.person = Person()
         self.person.center_x = 70
         self.person.center_y = 300
-        # corda = [(500, 750), (1225, 275), (1419, 275), (838, 802), (1032, 802), (2386, 732)]
-        corda = [(500, 250)]
+        corda = [(500, 750), (1225, 275), (1419, 275), (838, 802), (1032, 802), (2386, 732)]
         self.coin_list = arcade.SpriteList()
         for i in corda:
             coin = Coin()
@@ -222,6 +231,7 @@ class Game(arcade.View):
 
         def item_hit_handler(hero, item, _arbiter, _space, _data):
             item.kill()
+            self.coin_play = arcade.play_sound(self.coin_music, 0.2)
 
         self.physics_engine.add_collision_handler("player", "coin",
                                                   post_handler=item_hit_handler)
@@ -243,6 +253,9 @@ class Game(arcade.View):
             self.portal.draw()
 
     def on_update(self, delta_time: float):
+        if self.coin_len == 0 and self.portal_const == 0:
+            self.portal_play = arcade.play_sound(self.portal_music, 0.2)
+            self.portal_const = 1
         if self.person.center_y <= -100:
             rip = Rip()
             window.show_view(rip)
@@ -293,6 +306,7 @@ class Game(arcade.View):
             if self.physics_engine.is_on_ground(self.person):
                 impulse = (0, PLAYER_JUMP_IMPULSE)
                 self.physics_engine.apply_impulse(self.person, impulse)
+                self.jump_play = arcade.play_sound(self.jump_music, 0.08)
 
     def on_key_release(self, symbol: int, modifiers: int):
         if symbol == arcade.key.LEFT or symbol == arcade.key.A:
@@ -344,6 +358,32 @@ class Game_2(arcade.View):
         self.start_time = None
         self.win_2 = None
 
+        self.jump_music = arcade.load_sound("music/jump/jump_1.mp3")
+        self.jump_play = None
+
+        self.achi_music = arcade.load_sound('music/achi/achi_2.mp3')
+        self.achi_play = None
+
+        self.portal_music = arcade.load_sound('music/portal/portal.mp3')
+        self.portal_play = None
+        self.portal_const = 0
+
+        self.coin_music = arcade.load_sound('music/coin.mp3')
+        self.coin_play = None
+
+        self.speed_y = 1
+
+        if os.path.isfile("save.json"):
+            data = read()
+            if -3 in data.get("levels"):
+                self.constant = 3
+            else:
+                self.constant = 0
+
+        else:
+            self.constant = 0
+        self.center_y = None
+
         self.setup()
 
     def setup(self):
@@ -363,9 +403,8 @@ class Game_2(arcade.View):
         self.person = Person()
         self.person.center_x = 170
         self.person.center_y = 1100
-        # corda = [(187, 363), (812, 312), (1500, 562), (1062, 562), (1472, 312), (2125, 438), (3000, 687), (3125, 501),
-        #          (3375, 501), (2685, 875), (1875, 562)]
-        corda = [(187, 363)]
+        corda = [(187, 363), (812, 312), (1500, 562), (1062, 562), (1472, 312), (2125, 438), (3000, 687), (3125, 501),
+                 (3375, 501), (2685, 875), (1875, 562)]
         self.coin_list = arcade.SpriteList()
         for i in corda:
             coin = Coin()
@@ -376,8 +415,9 @@ class Game_2(arcade.View):
         self.portal = Portal()
         self.portal.position = 3710, 1073
 
-        self.gold_coin = Gold_Coin()
-        self.gold_coin.position = 2000, 1000
+        if self.constant == 0:
+            self.gold_coin = Gold_Coin()
+            self.gold_coin.position = 2000, 1000
 
         damping = DEFAULT_DAMPING
         gravity = (0, -GRAVITI)
@@ -402,9 +442,14 @@ class Game_2(arcade.View):
 
         def item_hit_handler(hero, item, _arbiter, _space, _data):
             item.kill()
+            self.coin_play = arcade.play_sound(self.coin_music, 0.2)
 
         self.physics_engine.add_collision_handler("player", "coin",
                                                   post_handler=item_hit_handler)
+
+        self.center_y = self.person.center_y + 25
+
+
 
     def on_draw(self):
         self.clear()
@@ -419,13 +464,23 @@ class Game_2(arcade.View):
         self.no_ground.draw()
         self.ground.draw()
         self.coin_list.draw()
-        self.gold_coin.draw()
+        if self.constant == 0:
+            self.gold_coin.draw()
 
         self.person.draw()
         if self.coin_len == 0:
             self.portal.draw()
 
+        if self.constant == 1:
+            arcade.draw_text("Достижение получено", self.person.center_x, self.center_y, (0, 255, 255), 18)
     def on_update(self, delta_time: float):
+        if self.coin_len == 0 and self.portal_const == 0:
+            self.portal_play = arcade.play_sound(self.portal_music, 0.2)
+            self.portal_const = 1
+        if self.center_y >= 1250:
+            self.constant = 3
+        if self.constant == 1:
+            self.center_y += self.speed_y
         if self.person.center_y <= -100:
             rip = Rip()
             window.show_view(rip)
@@ -439,16 +494,18 @@ class Game_2(arcade.View):
             if arcade.check_for_collision(self.person, self.portal):
                 elapsed_time = time.time() - self.start_time
                 self.rounded_time = round(elapsed_time, 1)
-                self.win_2 = Win_2(self.level, self.rounded_time)
+                self.win_2 = Win_2(self.level, self.rounded_time, self.constant)
                 self.win_2.manager.enable()
                 self.window.show_view(self.win_2)
                 self.person.center_x = SCREEN_WIDTH // 2
                 self.person.center_y = SCREEN_HEIGHT // 2
 
-
-        self.gold_coin.update_animation()
-        if arcade.check_for_collision(self.person, self.gold_coin):
-            self.gold_coin.kill()
+        if self.constant == 0:
+            self.gold_coin.update_animation()
+            if arcade.check_for_collision(self.person, self.gold_coin):
+                self.gold_coin.kill()
+                self.achi_play = arcade.play_sound(self.achi_music, 0.2)
+                self.constant = 1
 
         for coin in self.coin_list:
             coin.update_animation()
@@ -481,6 +538,7 @@ class Game_2(arcade.View):
             if self.physics_engine.is_on_ground(self.person):
                 impulse = (0, PLAYER_JUMP_IMPULSE + 125)
                 self.physics_engine.apply_impulse(self.person, impulse)
+                self.jump_play = arcade.play_sound(self.jump_music, 0.08)
 
     def on_key_release(self, symbol: int, modifiers: int):
         if symbol == arcade.key.LEFT or symbol == arcade.key.A:
@@ -508,7 +566,6 @@ class Menu_View(arcade.View):
         self.manager = gui.UIManager()
         self.manager.enable()
         if os.path.isfile("save.json"):
-
             data = read()
             self.levels = data.get("levels")
         else:
@@ -533,21 +590,36 @@ class Menu_View(arcade.View):
 
         start_key.on_click = self.on_click_start
         story_key.on_click = self.on_click_story
+        star_key.on_click = self.on_click_achievements
 
         self.backgrounds = arcade.load_texture("Final/Background_0.png")
         self.backgrounds_1 = arcade.load_texture("Final/Background_1.png")
 
+        self.bg_music = arcade.load_sound("music/bg/bg_1.mp3")
+        self.bg_play = arcade.play_sound(self.bg_music, 0.1, looping=True)
+
+        self.click_music = arcade.load_sound("music/click/click_1.mp3")
+        self.click_play = None
     def on_click_start(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
         self.level = Levels(self.levels)
         self.level.manager.enable()
         window.show_view(self.level)
         self.manager.disable()
 
     def on_click_story(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
         story = Story(menu_view)
         story.setup()
         window.show_view(story)
         self.manager.disable()
+
+    def on_click_achievements(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
+        achi_viev = Achievements()
+        window.show_view(achi_viev)
+        self.manager.disable()
+
 
     def on_draw(self):
         self.clear()
@@ -585,6 +657,7 @@ class Levels(arcade.View):
         else:
             block_key = gui.UIFlatButton(text="Blocked", width=200)
             self.game_box.add(block_key.with_space_around(25))
+            block_key.on_click = self.on_click_block
 
         rest_key_1 = gui.UIFlatButton(text="В разработке...", width=200)
         self.game_box.add(rest_key_1.with_space_around(25))
@@ -595,27 +668,41 @@ class Levels(arcade.View):
         start_key.on_click = self.on_click_level
         menu_key.on_click = self.on_click_menu
 
+        rest_key_1.on_click = self.on_click_next
+
+
 
         self.game_1 = None
         self.game_2 = None
 
+        self.click_music = arcade.load_sound("music/click/click_1.mp3")
+        self.click_play = None
+
     def on_click_menu(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
         menu_view.manager.enable()
         window.show_view(menu_view)
         self.manager.disable()
 
     def on_click_level(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
         self.game_1 = Game(self.level)
         self.game_1.setup()
         window.show_view(self.game_1)
         self.manager.disable()
 
     def on_click_level_2(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
         self.game_2 = Game_2(self.level)
         self.game_2.setup()
         window.show_view(self.game_2)
         self.manager.disable()
 
+    def on_click_next(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
+
+    def on_click_block(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
     def on_draw(self):
         self.clear()
         arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
@@ -638,12 +725,67 @@ class Rip(arcade.View):
         arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
                                       SCREEN_WIDTH, SCREEN_HEIGHT, self.backgrounds_1)
 
-        arcade.draw_text("Вы проиграли", 300, SCREEN_HEIGHT // 2, (255, 255, 255), font_size=50)
+        arcade.draw_text("Вы сломали игру :)", 300, SCREEN_HEIGHT // 2, (255, 255, 255), font_size=50)
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
         window.show_view(menu_view)
         menu_view.manager.enable()
 
+class Achievements(arcade.View):
+    def __init__(self):
+        super().__init__()
+        self.backgrounds = arcade.load_texture("Final/Background_0.png")
+        self.backgrounds_1 = arcade.load_texture("Final/Background_1.png")
+
+        self.click_music = arcade.load_sound("music/click/click_1.mp3")
+        self.click_play = None
+
+        self.gold_coin = Gold_Coin()
+        self.gold_coin.scale = 0.05
+        self.gold_coin.position = 100, 500
+        self.manager = gui.UIManager()
+        self.manager.enable()
+        self.skip_box = gui.UIBoxLayout()
+        skip_anchor = gui.UIAnchorWidget(anchor_x="right",
+                                         anchor_y="top",
+                                         child=self.skip_box)
+        self.manager.add(skip_anchor)
+
+        restart_key = gui.UIFlatButton(text="Меню", width=200)
+        self.skip_box.add(restart_key.with_space_around(25))
+        restart_key.on_click = self.on_click_skip
+
+        if os.path.isfile("save.json"):
+            data = read()
+            if -3 in data.get("levels"):
+                self.coin = 1
+            else:
+                self.coin = 0
+        else:
+            self.coin = 0
+    def on_click_skip(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
+        menu_view.manager.enable()
+        window.show_view(menu_view)
+        self.manager.disable()
+
+
+    def on_draw(self):
+        self.clear()
+        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
+                                      SCREEN_WIDTH, SCREEN_HEIGHT, self.backgrounds)
+
+        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
+                                      SCREEN_WIDTH, SCREEN_HEIGHT, self.backgrounds_1)
+        if self.coin == 0:
+            arcade.draw_text("У вас нет достижений", 300, SCREEN_HEIGHT // 2, (0,255,0), 30)
+        else:
+            self.gold_coin.draw()
+            arcade.draw_text("Искатель сокровищ", 135, 485, (200, 0, 150),20)
+        self.manager.draw()
+
+    def update(self, delta_time: float):
+        self.gold_coin.update_animation()
 
 class Win(arcade.View):
     def __init__(self, level, timeer):
@@ -678,12 +820,17 @@ class Win(arcade.View):
         self.win_box.add(restart_key.with_space_around(25))
         restart_key.on_click = self.on_click_restart
 
+        self.click_music = arcade.load_sound("music/click/click_1.mp3")
+        self.click_play = None
+
     def on_click_win(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
         menu_view.manager.enable()
         window.show_view(menu_view)
         self.manager.disable()
 
     def on_click_restart(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
         game = Game(self.level)
         window.show_view(game)
         self.manager.disable()
@@ -703,7 +850,7 @@ class Win(arcade.View):
 
 
 class Win_2(arcade.View):
-    def __init__(self, level, timers):
+    def __init__(self, level, timers, const):
         super().__init__()
         self.backgrounds = arcade.load_texture("Final/Background_0.png")
         self.backgrounds_1 = arcade.load_texture("Final/Background_1.png")
@@ -713,6 +860,10 @@ class Win_2(arcade.View):
 
         self.level = level
         self.level.add(3)
+
+        self.const = const
+        if self.const == 3:
+            self.level.add(-3)
 
 
         data = {"levels": list(self.level)}
@@ -734,12 +885,17 @@ class Win_2(arcade.View):
         self.win_box.add(restart_key.with_space_around(25))
         restart_key.on_click = self.on_click_restart
 
+        self.click_music = arcade.load_sound("music/click/click_1.mp3")
+        self.click_play = None
+
     def on_click_win(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
         menu_view.manager.enable()
         window.show_view(menu_view)
         self.manager.disable()
 
     def on_click_restart(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
         game_2 = Game_2(self.level)
         window.show_view(game_2)
         self.manager.disable()
@@ -771,6 +927,9 @@ class Story(arcade.View):
         self.backgrounds = arcade.load_texture("Final/Background_0.png")
         self.backgrounds_1 = arcade.load_texture("Final/Background_1.png")
 
+        self.click_music = arcade.load_sound("music/click/click_1.mp3")
+        self.click_play = None
+
         self.num_str = 0
 
         self.spisok = []
@@ -788,7 +947,10 @@ class Story(arcade.View):
         self.skip_box.add(restart_key.with_space_around(25))
         restart_key.on_click = self.on_click_skip
 
+
+
     def on_click_skip(self, event):
+        self.click_play = arcade.play_sound(self.click_music, 0.1)
         menu_view.manager.enable()
         window.show_view(menu_view)
         self.manager.disable()
@@ -836,11 +998,12 @@ class Story(arcade.View):
                     self.num_str += 1
 
 
+if __name__ == "__main__":
+    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, "Слеза")
+    menu_view = Menu_View()
+    rip_view = Rip()
+    story_view = Story(menu_view)
 
-window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT)
-menu_view = Menu_View()
-rip_view = Rip()
-story_view = Story(menu_view)
 
-window.show_view(menu_view)
-arcade.run()
+    window.show_view(menu_view)
+    arcade.run()
